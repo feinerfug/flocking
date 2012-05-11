@@ -51,35 +51,111 @@
     }
   };
 
-  System = function(point, birds) {
-    var calculateForce;
+  System = function(point, birds, height, width) {
+    var i,j, buckets = [],
+        bucketsCount = 50,
+        bucketIndexX,
+        bucketIndexY,
+        calculateForce,
+        calculateForceBird,
+        calculateForceBetween;
 
     this.setPoint = function(p) {
       point = p;
     };
     this.ticks = function(time) {
-      // console.log("Tick: " + time);
+      console.log("Tick: " + time);
       birds.forEach(function(bird) {
         bird.updateVelocityBy(time, calculateForce(bird));
+
+        i = bucketIndexX(bird);
+        j = bucketIndexY(bird);
+
+        if(i > 0) {
+          if(j > 0) {
+            calculateForceBird(bird, buckets[i - 1][j - 1], time);
+          }
+          calculateForceBird(bird, buckets[i - 1][j], time);
+          if(j < bucketsCount - 1) {
+            calculateForceBird(bird, buckets[i - 1][j], time);
+          }
+        }
+        if(j > 0) {
+          calculateForceBird(bird, buckets[i][j - 1], time);
+        }
+        calculateForceBird(bird, buckets[i][j], time);
+        if(j < bucketsCount) {
+          calculateForceBird(bird, buckets[i][j], time);
+        }
+        if(i < bucketsCount - 1) {
+          if(j > 0) {
+            calculateForceBird(bird, buckets[i + 1][j - 1], time);
+          }
+          calculateForceBird(bird, buckets[i + 1][j], time);
+          if(j < bucketsCount - 1) {
+            calculateForceBird(bird, buckets[i + 1][j], time);
+          }
+        }
+
         bird.move(time);
         bird.render();
       });
+
+      buckets = [];
+      for(i = 0; i < bucketsCount; i++) {
+        buckets.push([]);
+        for(j = 0; j < bucketsCount; j++) {
+          buckets[i].push([]);
+        }
+      }
+
+      birds.forEach(function(bird) {
+        buckets[bucketIndexX(bird)][bucketIndexY(bird)].push(bird);
+      });
+    };
+    bucketIndexX = function(bird) {
+      return Math.min(bucketsCount - 1, Math.max(0, Math.floor(bucketsCount * bird.current.x / width)));
+    };
+    bucketIndexY = function(bird) {
+      return Math.min(bucketsCount - 1, Math.max(0, Math.floor(bucketsCount * bird.current.y / height)));
     };
     calculateForce = function(bird) {
-      var difference = point.minus(bird.current);
-      return difference.scale(Math.PI * 2.0 * 2.0 / ( Math.max(0.1, difference.norm2())));
+      return calculateForceBetween(point, bird.current, 2.0);
     };
+    calculateForceBird = function(bird, bucket, time) {
+      bucket.forEach(function(anotherBird) {
+        bird.updateVelocityBy(time, calculateForceBetween(bird.current, anotherBird.current, 0.05));
+      });
+    };
+    calculateForceBetween = function(x, y, weight) {
+      var difference = x.minus(y);
+      return difference.scale(Math.PI * 2.0 * weight / ( Math.max(0.1, difference.norm2())));
+    };
+
+    for(i = 0; i < bucketsCount; i++) {
+      buckets.push([]);
+      for(j = 0; j < bucketsCount; j++) {
+        buckets[i].push([]);
+      }
+    }
+
+    birds.forEach(function(bird) {
+      buckets[bucketIndexX(bird)][bucketIndexY(bird)].push(bird);
+    });
+
   };
 
   $(function () {
-    var birds = [];
+    var height = $(window).height(),
+        width = $(window).width(),
+        birds = [];
 
     for (var i = 0; i < 1000; i++) {
-      birds.push(new Bird(new Vector($(window).width() * Math.random(), $(window).height() * Math.random())));
+      birds.push(new Bird(new Vector(width * Math.random(), height * Math.random())));
     }
 
     var mousePosition = Vector.zero;
-    var system = new System(mousePosition, birds);
+    var system = new System(mousePosition, birds, height, width);
 
     $(document).mousemove(function(event) {
       mousePosition = new Vector(event.pageX, event.pageY);
@@ -93,7 +169,7 @@
       time = new Date();
       system.ticks(time - lastTick);
       lastTick = time;
-    }, 50);
+    }, 30);
   });
 
 }(jQuery));
