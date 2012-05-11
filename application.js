@@ -1,67 +1,99 @@
+
+/*globals jQuery, console */
+
 (function($) {
-	var idCounter = 0;
-	var maxDistance = Math.sqrt( Math.pow($(window).height(), 2) + Math.pow($(window).width(), 2) );
-	var Bird = function() {
-		this.id = idCounter++;
-		this.output = $("<div>").addClass("dot").appendTo("body");
-		this.start = this.inbetween = this.target = this.current;
-	};
-	Bird.prototype = {
-		current: new Point(0, 0),
 
-		step: 0,
+  var idCounter = 0,
+      maxDistance = Math.sqrt(Math.pow($(window).height(), 2) + Math.pow($(window).width(), 2)),
+      Vector,
+      Bird,
+      System;
 
-		distanceToTarget: 0,
+  Vector = function (x, y) {
+    this.x = x;
+    this.y = y;
+  };
+  Vector.prototype = {
+    add: function(w) {
+      return new Vector(this.x + w.x, this.y + w.y);
+    },
+    minus: function(w) {
+      return new Vector(this.x - w.x, this.y - w.y);
+    },
+    scale: function(s) {
+      return new Vector(this.x * s, this.y *s);
+    },
+    norm2: function() {
+      return this.x*this.x + this.y*this.y;
+    }
+  };
 
-		move: function() {
-			this.step += 0.05;
-			if (this.step >= 1) {
-				this.step = 1;
-			}
-			var step = 1 - this.step;
-			this.current = getQuadraticBezier(1 - this.step, this.start, this.inbetween, this.target);
-		},
+  Vector.zero = new Vector(0, 0);
 
-		newTarget: function(target) {
-			this.inbetween = this.target;
-			this.start = this.current;
-			this.step = 0;
-			this.target = target;
-			this.distanceToTarget = this.current.distance(this.target) / maxDistance;
-		},
+  Bird = function(initialPosition) {
+    this.id = idCounter++;
+    this.output = $("<div>").addClass("dot").appendTo("body");
+    this.velocity = Vector.zero;
+    this.target = this.current = initialPosition;
+  };
+  Bird.prototype = {
+    updateVelocityBy: function(time, force) {
+      this.velocity = this.velocity.add(force.scale(time));
+    },
+    move: function(time) {
+      this.current = this.current.add(this.velocity.scale(time/1000));
+    },
+    render: function() {
+      this.output.css({
+        left: this.current.x,
+        top: this.current.y
+      });
+    }
+  };
 
-		render: function() {
-			this.output.css({
-				left: this.current.x,
-				top: this.current.y
-			});
-		}
-	};
+  System = function(point, birds) {
+    var calculateForce;
 
-	window.Bird = Bird;
-})(jQuery);
+    this.setPoint = function(p) {
+      point = p;
+    };
+    this.ticks = function(time) {
+      // console.log("Tick: " + time);
+      birds.forEach(function(bird) {
+        bird.updateVelocityBy(time, calculateForce(bird));
+        bird.move(time);
+        bird.render();
+      });
+    };
+    calculateForce = function(bird) {
+      var difference = point.minus(bird.current);
+      return difference.scale(Math.PI * 2.0 * 2.0 / ( Math.max(0.1, difference.norm2())));
+    };
+  };
 
-$(function() {
-	var birds = [];
-	for (var i = 0; i < 1; i++) {
-		birds.push(new Bird());
-	}
+  $(function () {
+    var birds = [];
 
-	var mousePosition = new Point(0, 0);
+    for (var i = 0; i < 1000; i++) {
+      birds.push(new Bird(new Vector($(window).width() * Math.random(), $(window).height() * Math.random())));
+    }
 
-	$(document).mousemove(function(event) {
-		mousePosition = new Point(event.pageX, event.pageY);
-	});
-	$(document).click(function() {
-		birds[0].newTarget(mousePosition);
-	});
+    var mousePosition = Vector.zero;
+    var system = new System(mousePosition, birds);
 
-	setInterval(function() {
-		birds.forEach(function(bird) {
-			// bird.target = mousePosition;
-			bird.move();
-			bird.render();
-		});
-	}, 50);
+    $(document).mousemove(function(event) {
+      mousePosition = new Vector(event.pageX, event.pageY);
+    });
+    $(document).click(function() {
+      system.setPoint(mousePosition);
+    });
 
-});
+    var time, lastTick = new Date();
+    setInterval(function() {
+      time = new Date();
+      system.ticks(time - lastTick);
+      lastTick = time;
+    }, 50);
+  });
+
+}(jQuery));
