@@ -5,9 +5,22 @@
 
   var idCounter = 0,
       maxDistance = Math.sqrt(Math.pow($(window).height(), 2) + Math.pow($(window).width(), 2)),
+      requestAnimFrame,
       Vector,
       Bird,
       System;
+
+  // requestAnim shim layer by Paul Irish
+  requestAnimFrame = (function(){
+    return  window.requestAnimationFrame       ||
+      window.webkitRequestAnimationFrame ||
+      window.mozRequestAnimationFrame    ||
+      window.oRequestAnimationFrame      ||
+      window.msRequestAnimationFrame     ||
+      function(/* function */ callback, /* DOMElement */ element){
+        window.setTimeout(callback, 1000 / 30);
+      };
+  }());
 
   Vector = function (x, y) {
     this.x = x;
@@ -41,6 +54,7 @@
       this.velocity = this.velocity.add(force.scale(time));
     },
     move: function(time) {
+      this.velocity = this.velocity.scale(0.99);
       this.current = this.current.add(this.velocity.scale(time/1000));
     },
     render: function() {
@@ -53,7 +67,7 @@
 
   System = function(point, birds, height, width) {
     var i,j, buckets = [],
-        bucketsCount = 50,
+        bucketsCount = 60,
         bucketIndexX,
         bucketIndexY,
         calculateForce,
@@ -148,9 +162,10 @@
   $(function () {
     var height = $(window).height(),
         width = $(window).width(),
-        birds = [];
+        birds = [],
+        animate;
 
-    for (var i = 0; i < 1000; i++) {
+    for (var i = 0; i < 100; i++) {
       birds.push(new Bird(new Vector(width * Math.random(), height * Math.random())));
     }
 
@@ -159,17 +174,18 @@
 
     $(document).mousemove(function(event) {
       mousePosition = new Vector(event.pageX, event.pageY);
-    });
-    $(document).click(function() {
       system.setPoint(mousePosition);
     });
 
     var time, lastTick = new Date();
-    setInterval(function() {
+    animate = function() {
+      requestAnimFrame(animate);
       time = new Date();
       system.ticks(time - lastTick);
       lastTick = time;
-    }, 30);
+    };
+    animate();
+
   });
 
 }(jQuery));
